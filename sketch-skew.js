@@ -4,8 +4,12 @@ const random = require('canvas-sketch-util/random');
 const Color = require('canvas-sketch-util/color');
 const risoColors = require('riso-colors');
 
+const seed = random.getRandomSeed();
+
 const settings = {
-  dimensions: [ 1080, 1080 ]
+  dimensions: [ 1080, 1080 ],
+  animate: true,
+  name: seed
 };
 
 const drawSkewedRect = ({ context, rectWidth = 600, rectHeight = 200, degrees = -45 }) => {
@@ -26,7 +30,24 @@ const drawSkewedRect = ({ context, rectWidth = 600, rectHeight = 200, degrees = 
   context.restore();
 };
 
+const drawPolygon = ({ context, radius = 100, sides = 3 }) => {
+  const slice = Math.PI * 2 / sides;
+
+  context.beginPath();
+  context.moveTo(0, -radius);
+  
+  for (let i = 0; i < sides; i++) {
+    const theta = i * slice - Math.PI * 0.5;
+    context.lineTo(Math.cos(theta) * radius, Math.sin(theta) * radius);
+    
+  }
+
+  context.closePath();
+};
+
 const sketch = ({ width, height }) => {
+  random.setSeed( seed );
+
   let rectX, rectY, rectWidth, rectHeight, rectFill, rectStroke, blend;
 
   const rectsLength = 40;
@@ -37,6 +58,15 @@ const sketch = ({ width, height }) => {
     random.pick(risoColors)
   ];
   const bgColor = random.pick(risoColors).hex;
+
+  const mask = {
+    radius: width * 0.4,
+    // sides: 3,
+    sides: 6,
+    x: width * 0.5,
+    // y: height * 0.58,
+    y: height * 0.5
+  };
 
   for (let i = 0; i < rectsLength; i++) {
     rectX = random.range(0, width);
@@ -55,13 +85,22 @@ const sketch = ({ width, height }) => {
   return ({ context, width, height }) => {
     context.fillStyle = bgColor;
     context.fillRect(0, 0, width, height);
-    context.lineWidth = 10;
+    context.lineWidth = 20;
+
+    context.save();
+    context.translate( mask.x, mask.y );
+
+    drawPolygon({ context, radius: mask.radius, sides: mask.sides });
+    
+    context.clip();
+
 
     rects.forEach(rect => {
       const { rectX, rectY, rectWidth, rectHeight, rectFill, rectStroke, blend } = rect;
       let shadowColor;
 
       context.save();
+      context.translate(-mask.x, -mask.y);
       context.translate(rectX, rectY);
       context.strokeStyle = rectStroke;
       context.fillStyle   = rectFill;
@@ -90,6 +129,21 @@ const sketch = ({ width, height }) => {
 
       context.restore();
     });
+
+    context.restore();
+
+    // Polygon Outline
+    context.save();
+    context.translate( mask.x, mask.y );
+
+    drawPolygon({ context, radius: mask.radius - (context.lineWidth * 3), sides: mask.sides });
+
+    context.lineWidth = 20;
+    context.globalCompositeOperation = 'color-burn';
+    context.strokeStyle = rectColors[0].hex;
+    context.stroke();
+
+    context.restore();
 
   };
 };
